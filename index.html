@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Expense Agent</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Expenses">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F4F5FA">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+  :root {
+    --bg: #F4F5FA; --card: #FFFFFF; --text: #0F172A; --muted: #64748B; --faint: #94A3B8;
+    --border: #E2E8F0; --primary: #4F46E5; --primary-soft: #EEF2FF; --hero: #1E1B4B;
+    --expense: #E11D48; --income: #059669; --income-soft: #ECFDF5; --warn-bg: #FEF3C7; --warn: #92400E;
+    --shadow: 0 4px 14px rgba(15, 23, 42, .06);
+    --safe-top: env(safe-area-inset-top); --safe-bottom: env(safe-area-inset-bottom);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  body { min-height: 100vh; overscroll-behavior-y: none; overflow-x: hidden; }
+  button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
+  button:active { opacity: .65; }
+  input, textarea { font: inherit; font-size: 16px; color: var(--text); }
+  svg { display: block; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  #view { max-width: 560px; margin: 0 auto; padding: calc(var(--safe-top) + 18px) 18px calc(var(--safe-bottom) + 110px); }
+  .stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .stack > * { min-width: 0; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .between { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  h1 { font-size: 27px; font-weight: 800; margin: 0; letter-spacing: -.02em; }
+  h2 { font-size: 17px; font-weight: 700; margin: 0 0 6px; }
+  .sub { color: var(--muted); font-size: 14px; }
+  .card { background: var(--card); border-radius: 20px; padding: 18px; box-shadow: var(--shadow); }
+  .icon-btn { width: 44px; height: 44px; border-radius: 22px; background: var(--primary-soft); color: var(--primary);
+    display: grid; place-items: center; flex: none; }
+  .link { color: var(--primary); font-weight: 700; }
+
+  .hero { background: linear-gradient(145deg, #312E81, var(--hero)); color: #fff; border-radius: 22px; padding: 22px; box-shadow: var(--shadow); }
+  .hero .label { color: #C7D2FE; font-size: 14px; font-weight: 600; }
+  .hero .big { font-size: 40px; font-weight: 800; margin-top: 2px; letter-spacing: -.02em; }
+  .hero .split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+  .hero .stat-label { color: #A5B4FC; font-size: 12px; }
+  .hero .stat-value { font-size: 16px; font-weight: 700; margin-top: 2px; }
+  .today { display: flex; justify-content: space-between; align-items: center; }
+  .today .value { font-size: 28px; font-weight: 800; color: var(--expense); }
+  .actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .action { background: var(--card); border-radius: 16px; padding: 14px 6px; box-shadow: var(--shadow);
+    display: grid; justify-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--text); }
+  .action svg { color: var(--primary); }
+  .action.primary { background: var(--primary); color: #fff; }
+  .action.primary svg { color: #fff; }
+
+  .cat-row { display: grid; grid-template-columns: 128px 1fr 84px; align-items: center; gap: 10px; padding: 6px 0; font-size: 14px; }
+  .cat-row .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .track { height: 8px; border-radius: 4px; background: var(--border); }
+  .fill { height: 8px; border-radius: 4px; background: var(--primary); }
+  .cat-row .amt { text-align: right; font-weight: 600; }
+
+  .tx { display: flex; align-items: center; gap: 12px; padding: 10px 0; width: 100%; text-align: left; }
+  .tx + .tx { border-top: 1px solid #F1F5F9; }
+  .tx .ic { width: 42px; height: 42px; border-radius: 12px; background: var(--primary-soft); display: grid; place-items: center; font-size: 20px; flex: none; }
+  .tx.income .ic { background: var(--income-soft); }
+  .tx .mid { flex: 1; min-width: 0; }
+  .tx .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tx .meta { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tx .amt { font-weight: 700; }
+  .tx.income .amt { color: var(--income); }
+  .empty { color: var(--muted); font-size: 14px; padding: 10px 0; }
+  .footer { text-align: center; color: var(--faint); font-size: 12px; line-height: 1.6; }
+
+  .segment { display: grid; grid-template-columns: 1fr 1fr; background: #E5E7F0; border-radius: 14px; padding: 4px; }
+  .segment button { padding: 10px; border-radius: 10px; font-weight: 700; color: var(--muted); }
+  .segment button.on { background: var(--card); box-shadow: var(--shadow); }
+  .segment button.on.expense { color: var(--expense); }
+  .segment button.on.income { color: var(--income); }
+  .scan { background: var(--primary-soft); border-radius: 20px; padding: 16px; display: grid; gap: 12px; }
+  .scan p { margin: 0; color: var(--hero); font-size: 14px; }
+  .scan .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .scan .buttons button { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border-radius: 14px;
+    background: var(--card); color: var(--primary); font-weight: 700; }
+  .scan .buttons button.primary { background: var(--primary); color: #fff; }
+  .thumb { width: 48px; height: 64px; border-radius: 8px; object-fit: cover; background: var(--border); flex: none; }
+  .warn { background: var(--warn-bg); color: var(--warn); border-radius: 14px; padding: 12px 14px; font-size: 14px; display: grid; gap: 4px; }
+  .error-box { background: #FFE4E6; color: #9F1239; border-radius: 14px; padding: 14px; font-size: 14px; display: grid; gap: 8px; }
+
+  label.field { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin: 14px 0 6px; }
+  label.field:first-child { margin-top: 0; }
+  .input { width: 100%; min-width: 0; display: block; -webkit-appearance: none; appearance: none; border: 1px solid var(--border); border-radius: 10px; padding: 11px 12px; background: #FAFBFD; outline: none; }
+  .input:focus { border-color: var(--primary); background: #fff; }
+  textarea.input { min-height: 70px; resize: vertical; }
+  .amount { display: flex; align-items: center; gap: 4px; }
+  .amount span { font-size: 34px; font-weight: 800; }
+  .amount input { flex: 1; min-width: 0; width: 100%; border: 0; outline: none; font-size: 38px; font-weight: 800; background: transparent; padding: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { border: 1px solid var(--border); border-radius: 999px; padding: 8px 12px; background: var(--card); font-size: 14px; font-weight: 500; }
+  .chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .btn { width: 100%; padding: 16px; border-radius: 14px; background: var(--primary); color: #fff; font-size: 17px; font-weight: 800; box-shadow: var(--shadow); }
+  .btn[disabled] { opacity: .6; }
+  .btn.ghost { background: none; box-shadow: none; color: var(--primary); font-weight: 700; padding: 10px; }
+  .btn.danger { background: none; box-shadow: none; color: var(--expense); font-weight: 700; padding: 10px; }
+
+  .month-nav { display: flex; align-items: center; justify-content: space-between; }
+  .month-nav strong { font-size: 18px; }
+  .totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .total { background: var(--card); border-radius: 14px; padding: 12px; box-shadow: var(--shadow); }
+  .total .l { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .total .v { font-size: 17px; font-weight: 800; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .day-head { display: flex; justify-content: space-between; margin: 10px 4px 4px; font-size: 13px; font-weight: 700;
+    color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .day { background: var(--card); border-radius: 16px; padding: 2px 14px; box-shadow: var(--shadow); }
+
+  .tabbar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,.92); backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px); border-top: 1px solid var(--border);
+    display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 8px 0 calc(var(--safe-bottom) + 8px); z-index: 10; }
+  .tabbar button { display: grid; justify-items: center; gap: 2px; font-size: 11px; font-weight: 600; color: var(--faint); }
+  .tabbar button.on { color: var(--primary); }
+  .tabbar .plus { width: 56px; height: 56px; border-radius: 28px; background: var(--primary); color: #fff; display: grid; place-items: center;
+    margin-top: -26px; box-shadow: 0 6px 18px rgba(79, 70, 229, .35); }
+  .tabbar .on .plus { background: var(--hero); }
+
+  .spinner { width: 22px; height: 22px; border: 3px solid var(--primary-soft); border-top-color: var(--primary); border-radius: 50%;
+    animation: spin .8s linear infinite; }
+  .spinner.white { border-color: rgba(255,255,255,.35); border-top-color: #fff; margin: 0 auto; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .center { display: grid; place-items: center; padding: 60px 0; }
+  .toast { position: fixed; left: 50%; bottom: calc(var(--safe-bottom) + 96px); transform: translateX(-50%) translateY(20px); opacity: 0;
+    background: var(--text); color: #fff; padding: 12px 18px; border-radius: 14px; font-size: 15px; font-weight: 600; max-width: calc(100% - 40px);
+    transition: .25s; pointer-events: none; z-index: 20; text-align: center; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.bad { background: #9F1239; }
+  .hidden { display: none !important; }
+  ol.steps { margin: 6px 0 0; padding-left: 20px; color: var(--muted); font-size: 14px; }
+  ol.steps li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<main id="view"></main>
+<nav class="tabbar hidden" id="tabbar"></nav>
+<div class="toast" id="toast"></div>
+<input type="file" accept="image/*" capture="environment" id="cameraInput" class="hidden">
+<input type="file" accept="image/*" id="photoInput" class="hidden">
+
+<script>
+'use strict';
+
+// ---------------------------------------------------------------- constants
+const ICONS = {
+  'Food & Dining': '🍔', 'Groceries': '🛒', 'Transport': '🚗', 'Shopping': '🛍️', 'Bills & Utilities': '💡', 'Rent': '🏠',
+  'Health': '💊', 'Entertainment': '🎬', 'Travel': '✈️', 'Education': '📚', 'Personal Care': '💇', 'Other': '📦',
+  'Salary': '💼', 'Freelance': '💻', 'Business': '🏪', 'Refund': '↩️', 'Gift': '🎁', 'Interest': '🏦', 'Other Income': '💰',
+};
+const DEFAULT_CATEGORIES = {
+  expense: ['Food & Dining', 'Groceries', 'Transport', 'Shopping', 'Bills & Utilities', 'Rent', 'Health', 'Entertainment', 'Travel', 'Education', 'Personal Care', 'Other'],
+  income: ['Salary', 'Freelance', 'Business', 'Refund', 'Gift', 'Interest', 'Other Income'],
+};
+const svg = (d, size = 24, extra = '') =>
+  `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${extra}>${d}</svg>`;
+const I = {
+  home: svg('<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/>'),
+  list: svg('<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>'),
+  plus: svg('<path d="M12 5v14M5 12h14"/>', 30, 'stroke-width="2.6"'),
+  camera: svg('<path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/>', 22),
+  image: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/>', 22),
+  edit: svg('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m14 6 4 4"/>', 22),
+  mail: svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>', 22),
+  gear: svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>', 22),
+  refresh: svg('<path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/>', 22),
+  left: svg('<path d="m15 18-6-6 6-6"/>', 22),
+  right: svg('<path d="m9 18 6-6-6-6"/>', 22),
+  up: svg('<path d="M12 19V5M5 12l7-7 7 7"/>', 16),
+  down: svg('<path d="M12 5v14M19 12l-7 7-7-7"/>', 16),
+};
+
+// ---------------------------------------------------------------- helpers
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+const money = (n) => usd.format(n || 0);
+const pad = (n) => String(n).padStart(2, '0');
+const isoDate = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return isoDate(d); };
+const currentMonth = () => isoDate().slice(0, 7);
+const localDate = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); };
+function shiftMonth(month, delta) {
+  const [y, m] = month.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+}
+const monthLabel = (month) => localDate(month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+function friendlyDate(iso) {
+  if (iso === isoDate()) return 'Today';
+  if (iso === daysAgo(1)) return 'Yesterday';
+  const d = localDate(iso);
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', ...(d.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' }) });
+}
+const hourLabel = (h) => `${((h + 11) % 12) + 1} ${h < 12 ? 'AM' : 'PM'}`;
+const icon = (cat) => ICONS[cat] || '📦';
+
+let toastTimer;
+function toast(msg, bad = false) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (bad ? ' bad' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (t.className = 'toast' + (bad ? ' bad' : '')), bad ? 4500 : 2200);
+}
+
+// ---------------------------------------------------------------- storage + API
+const store = {
+  get(key, fallback) { try { return JSON.parse(localStorage.getItem('ea.' + key)) ?? fallback; } catch { return fallback; } },
+  set(key, value) { try { localStorage.setItem('ea.' + key, JSON.stringify(value)); } catch { /* private mode */ } },
+};
+const settings = () => store.get('settings', { url: '', token: '' });
+
+async function api(action, extra = {}, override) {
+  const { url, token } = override || settings();
+  if (!url) throw new Error('Add your backend URL in Settings first.');
+  let res;
+  try {
+    // A plain-text POST avoids a CORS preflight, which Apps Script doesn't support.
+    res = await fetch(url, { method: 'POST', body: JSON.stringify({ token, action, ...extra }), redirect: 'follow' });
+  } catch {
+    throw new Error("Couldn't reach your backend. Check your internet connection and the URL in Settings.");
+  }
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch {
+    throw new Error('The backend URL didn\'t answer correctly. Use the Web app URL ending in /exec, deployed with access "Anyone".');
+  }
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+// ---------------------------------------------------------------- app state
+const state = {
+  tab: 'home',
+  overview: store.get('overview', null),
+  homeError: null,
+  history: null,
+  historyError: null,
+  month: currentMonth(),
+  filter: 'all',
+  form: null,
+  returnTo: 'home',
+  busy: false,
+};
+const categories = () => state.overview?.categories || DEFAULT_CATEGORIES;
+
+function go(tab) {
+  state.tab = tab;
+  render();
+  window.scrollTo(0, 0);
+  if (tab === 'home') loadOverview();
+  if (tab === 'history') loadHistory();
+}
+
+function render() {
+  const s = settings();
+  const setupNeeded = !s.url || !s.token;
+  $('#tabbar').classList.toggle('hidden', setupNeeded || state.tab === 'settings');
+  if (setupNeeded && state.tab !== 'settings') state.tab = 'settings';
+  const views = { home: homeView, add: addView, history: historyView, settings: settingsView };
+  $('#view').innerHTML = views[state.tab]();
+  $('#tabbar').innerHTML = tabbarView();
+}
+
+function tabbarView() {
+  const t = (tab, label, ic) => `<button data-act="tab" data-tab="${tab}" class="${state.tab === tab ? 'on' : ''}">${ic}<span>${label}</span></button>`;
+  return t('home', 'Home', I.home) +
+    `<button data-act="new" class="${state.tab === 'add' ? 'on' : ''}" aria-label="Add"><div class="plus">${I.plus}</div></button>` +
+    t('history', 'History', I.list);
+}
+
+function txRow(t, showDate = true) {
+  const income = t.type === 'income';
+  return `<button class="tx ${income ? 'income' : ''}" data-act="edit" data-id="${esc(t.id)}">
+    <div class="ic">${icon(t.category)}</div>
+    <div class="mid"><div class="title">${esc(t.description || t.category)}</div>
+      <div class="meta">${esc(t.category)}${showDate ? ' · ' + friendlyDate(t.date) : ''}${t.source === 'receipt' ? ' · 🧾' : ''}</div></div>
+    <div class="amt num">${income ? '+' : '−'}${money(t.amount)}</div></button>`;
+}
+
+// ---------------------------------------------------------------- Home
+async function loadOverview() {
+  try {
+    state.overview = await api('overview');
+    state.homeError = null;
+    store.set('overview', state.overview);
+  } catch (e) {
+    state.homeError = e.message;
+  }
+  if (state.tab === 'home') render();
+}
+
+function homeView() {
+  const o = state.overview;
+  const header = `<div class="between">
+      <div><h1>Expense Agent</h1><div class="sub">${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div></div>
+      <div class="row">
+        <button class="icon-btn" data-act="send" aria-label="Email today's summary">${state.busy ? '<div class="spinner"></div>' : I.mail}</button>
+        <button class="icon-btn" data-act="tab" data-tab="settings" aria-label="Settings">${I.gear}</button>
+      </div></div>`;
+  const err = state.homeError ? `<div class="error-box">${esc(state.homeError)}<button class="link" data-act="reload" style="text-align:left">Try again</button></div>` : '';
+  if (!o) return `<div class="stack">${header}${err || '<div class="center"><div class="spinner"></div></div>'}</div>`;
+
+  const maxCat = Math.max(1, ...o.monthCategories.map((c) => c.amount));
+  return `<div class="stack">${header}${err}
+    <div class="hero">
+      <div class="label">Balance</div>
+      <div class="big num" style="${o.balance < 0 ? 'color:#FDA4AF' : ''}">${money(o.balance)}</div>
+      <div class="split">
+        <div><div class="stat-label row" style="gap:4px;color:#6EE7B7">${I.down}<span class="stat-label">Income this month</span></div><div class="stat-value num">${money(o.monthIncome)}</div></div>
+        <div><div class="stat-label row" style="gap:4px;color:#FDA4AF">${I.up}<span class="stat-label">Spent this month</span></div><div class="stat-value num">${money(o.monthExpense)}</div></div>
+      </div>
+    </div>
+    <div class="card today">
+      <div><div class="sub" style="font-weight:600">Spent today</div><div class="value num">${money(o.todayExpense)}</div></div>
+      ${o.todayIncome > 0 ? `<div style="color:var(--income);font-weight:700">+${money(o.todayIncome)} income</div>` : ''}
+    </div>
+    <div class="actions">
+      <button class="action primary" data-act="scan" data-src="camera">${I.camera}Scan receipt</button>
+      <button class="action" data-act="scan" data-src="photo">${I.image}From photos</button>
+      <button class="action" data-act="new">${I.edit}Enter bill</button>
+    </div>
+    ${o.monthCategories.length ? `<div class="card"><h2>Where it went this month</h2>${o.monthCategories.slice(0, 5).map((c) => `
+      <div class="cat-row"><div class="name">${icon(c.category)} ${esc(c.category)}</div>
+        <div class="track"><div class="fill" style="width:${Math.max(4, (c.amount / maxCat) * 100)}%"></div></div>
+        <div class="amt num">${money(c.amount)}</div></div>`).join('')}</div>` : ''}
+    <div class="card">
+      <div class="between"><h2 style="margin:0">Recent</h2><button class="link" data-act="tab" data-tab="history">See all</button></div>
+      ${o.recent.length ? o.recent.map((t) => txRow(t)).join('') : '<div class="empty">Nothing yet. Scan a receipt or add your first expense.</div>'}
+    </div>
+    <div class="footer">📬 Daily summary emailed around ${hourLabel(o.summaryHour)} to ${esc(o.summaryTo)}
+      ${o.receiptScanning ? '' : '<br>🧾 Receipt scanning is off. Add your free Gemini key in Code.gs'}
+      <br><button class="link" data-act="reload" style="font-size:12px">${I.refresh.replace('width="22" height="22"', 'width="12" height="12" style="display:inline;vertical-align:-1px"')} Refresh</button></div>
+  </div>`;
+}
+
+async function sendSummary() {
+  if (state.busy || !confirm("Email today's summary now?")) return;
+  state.busy = true; render();
+  try {
+    const r = await api('sendSummary');
+    toast('Summary emailed to ' + r.to);
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    state.busy = false; render();
+  }
+}
+
+// ---------------------------------------------------------------- Add / Edit
+function newForm(tx) {
+  return tx
+    ? { id: tx.id, type: tx.type, amount: String(tx.amount), description: tx.description, category: tx.category, date: tx.date, note: tx.note, source: tx.source, warnings: [], photo: null, scanning: false, saving: false }
+    : { id: null, type: 'expense', amount: '', description: '', category: 'Food & Dining', date: isoDate(), note: '', source: 'manual', warnings: [], photo: null, scanning: false, saving: false };
+}
+
+function openForm(tx) {
+  state.returnTo = state.tab === 'add' ? 'home' : state.tab;
+  state.form = newForm(tx);
+  go('add');
+}
+
+function findTx(id) {
+  const lists = [state.overview?.recent || [], state.history?.transactions || []];
+  for (const l of lists) { const t = l.find((x) => x.id === id); if (t) return t; }
+  return null;
+}
+
+function addView() {
+  const f = state.form || (state.form = newForm(null));
+  const accent = f.type === 'income' ? 'var(--income)' : 'var(--expense)';
+  const cats = categories()[f.type];
+  const scan = f.type === 'expense' && !f.id ? `
+    <div class="scan">
+      <div class="row">${f.photo ? `<img class="thumb" src="${f.photo}" alt="">` : ''}
+        ${f.scanning ? '<div class="spinner"></div><p><b>Reading your receipt…</b></p>'
+          : `<p>${f.photo ? 'Check the details below, then save.' : 'Snap a receipt or bill and the AI fills in the form for you.'}</p>`}</div>
+      ${f.scanning ? '' : `<div class="buttons">
+        <button class="primary" data-act="scan" data-src="camera">${I.camera}Camera</button>
+        <button data-act="scan" data-src="photo">${I.image}Photos</button></div>`}
+    </div>` : '';
+  return `<div class="stack">
+    <div class="between"><h1>${f.id ? 'Edit entry' : 'Add entry'}</h1>${f.id ? '<button class="link" data-act="cancel">Cancel</button>' : ''}</div>
+    <div class="segment">
+      <button data-act="type" data-type="expense" class="expense ${f.type === 'expense' ? 'on' : ''}">Expense</button>
+      <button data-act="type" data-type="income" class="income ${f.type === 'income' ? 'on' : ''}">Income</button>
+    </div>
+    ${scan}
+    ${f.warnings.length ? `<div class="warn">${f.warnings.map((w) => `<div>⚠️ ${esc(w)}</div>`).join('')}</div>` : ''}
+    <div class="card">
+      <label class="field" for="f-amount">Amount</label>
+      <div class="amount" style="color:${accent}"><span>$</span>
+        <input id="f-amount" size="1" data-field="amount" inputmode="decimal" placeholder="0.00" value="${esc(f.amount)}" style="color:${accent}" autocomplete="off"></div>
+      <label class="field" for="f-desc">${f.type === 'expense' ? 'Merchant or bill' : 'From'}</label>
+      <input id="f-desc" class="input" data-field="description" maxlength="120" value="${esc(f.description)}"
+        placeholder="${f.type === 'expense' ? 'e.g. Starbucks, Electric bill' : 'e.g. Paycheck'}">
+      <label class="field">Category</label>
+      <div class="chips">${cats.map((c) => `<button class="chip ${c === f.category ? 'on' : ''}" data-act="cat" data-cat="${esc(c)}">${icon(c)} ${esc(c)}</button>`).join('')}</div>
+      <label class="field" for="f-date">Date</label>
+      <input id="f-date" class="input" type="date" data-field="date" value="${esc(f.date)}" max="${isoDate()}">
+      <div class="chips" style="margin-top:8px">
+        <button class="chip ${f.date === isoDate() ? 'on' : ''}" data-act="date" data-date="${isoDate()}">Today</button>
+        <button class="chip ${f.date === daysAgo(1) ? 'on' : ''}" data-act="date" data-date="${daysAgo(1)}">Yesterday</button>
+      </div>
+      <label class="field" for="f-note">Note</label>
+      <textarea id="f-note" class="input" data-field="note" maxlength="500" placeholder="Optional">${esc(f.note)}</textarea>
+    </div>
+    <button class="btn" data-act="save" ${f.saving || f.scanning ? 'disabled' : ''}>${f.saving ? '<div class="spinner white"></div>' : f.id ? 'Save changes' : `Save ${f.type}`}</button>
+    ${f.id ? '<button class="btn danger" data-act="delete">Delete entry</button>' : ''}
+  </div>`;
+}
+
+/** Shrinks the photo to at most 2000px and JPEG, so uploads are quick. Returns base64 (no prefix). */
+function photoToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const scale = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.naturalWidth * scale);
+        canvas.height = Math.round(img.naturalHeight * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
+      } catch (e) { reject(e); } finally { URL.revokeObjectURL(url); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Couldn't open that photo. Try another one.")); };
+    img.src = url;
+  });
+}
+
+async function handlePhoto(file) {
+  if (!file) return;
+  if (!state.form || state.form.id) state.form = newForm(null);
+  const f = state.form;
+  f.type = 'expense';
+  f.warnings = [];
+  f.scanning = true;
+  if (f.photo) URL.revokeObjectURL(f.photo);
+  f.photo = URL.createObjectURL(file);
+  if (state.tab !== 'add') { state.returnTo = state.tab; state.tab = 'add'; }
+  render();
+  try {
+    const draft = await api('scan', { image: await photoToBase64(file), mediaType: 'image/jpeg' });
+    if (draft.amount != null) f.amount = draft.amount.toFixed(2);
+    if (draft.description) f.description = draft.description;
+    f.category = draft.category;
+    f.date = draft.date;
+    f.note = draft.note || f.note;
+    f.source = 'receipt';
+    f.warnings = draft.warnings || [];
+    toast('Receipt read: check and save');
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    f.scanning = false;
+    if (state.tab === 'add' && state.form === f) render();
+  }
+}
+
+async function saveForm() {
+  const f = state.form;
+  const amount = Number(String(f.amount).replace(/[$,\s]/g, ''));
+  if (!(amount > 0)) return toast('Enter an amount greater than 0', true);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(f.date)) return toast('Pick a date', true);
+  f.saving = true; render();
+  const tx = { type: f.type, amount, category: f.category, description: f.description.trim(), date: f.date, note: f.note.trim(), source: f.source };
+  try {
+    if (f.id) await api('update', { id: f.id, tx });
+    else await api('create', { tx });
+    toast(f.id ? 'Changes saved' : `${f.type === 'income' ? 'Income' : 'Expense'} saved`);
+    state.form = null;
+    state.history = null;
+    go(state.returnTo === 'history' ? 'history' : 'home');
+  } catch (e) {
+    f.saving = false; render();
+    toast(e.message, true);
+  }
+}
+
+async function deleteEntry() {
+  const f = state.form;
+  if (!confirm(`Delete "${f.description || f.category}"?`)) return;
+  try {
+    await api('delete', { id: f.id });
+    toast('Deleted');
+    state.form = null;
+    state.history = null;
+    go(state.returnTo === 'history' ? 'history' : 'home');
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+// ---------------------------------------------------------------- History
+async function loadHistory() {
+  const month = state.month;
+  try {
+    const data = await api('list', { month });
+    if (month !== state.month) return;
+    state.history = { ...data, month };
+    state.historyError = null;
+  } catch (e) {
+    state.historyError = e.message;
+  }
+  if (state.tab === 'history') render();
+}
+
+function historyView() {
+  const h = state.history && state.history.month === state.month ? state.history : null;
+  const isCurrent = state.month >= currentMonth();
+  const net = h ? h.income - h.expense : 0;
+  const list = h ? h.transactions.filter((t) => state.filter === 'all' || t.type === state.filter) : [];
+  const groups = [];
+  for (const t of list) {
+    const g = groups[groups.length - 1];
+    if (g && g.date === t.date) g.items.push(t); else groups.push({ date: t.date, items: [t] });
+  }
+  const f = (key, label) => `<button class="chip ${state.filter === key ? 'on' : ''}" data-act="filter" data-filter="${key}">${label}</button>`;
+  return `<div class="stack">
+    <h1>History</h1>
+    <div class="month-nav">
+      <button class="icon-btn" data-act="month" data-delta="-1" aria-label="Previous month">${I.left}</button>
+      <strong>${monthLabel(state.month)}</strong>
+      <button class="icon-btn" data-act="month" data-delta="1" aria-label="Next month" ${isCurrent ? 'disabled style="opacity:.3"' : ''}>${I.right}</button>
+    </div>
+    <div class="totals">
+      <div class="total"><div class="l">Income</div><div class="v num" style="color:var(--income)">${money(h?.income)}</div></div>
+      <div class="total"><div class="l">Spent</div><div class="v num" style="color:var(--expense)">${money(h?.expense)}</div></div>
+      <div class="total"><div class="l">Net</div><div class="v num" style="color:${net < 0 ? 'var(--expense)' : 'var(--text)'}">${net < 0 ? '−' : ''}${money(Math.abs(net))}</div></div>
+    </div>
+    <div class="chips">${f('all', 'All')}${f('expense', 'Expenses')}${f('income', 'Income')}</div>
+    ${state.historyError ? `<div class="error-box">${esc(state.historyError)}</div>` : ''}
+    <div>
+      ${!h && !state.historyError ? '<div class="center"><div class="spinner"></div></div>' : ''}
+      ${h && !groups.length ? `<div class="empty" style="text-align:center;padding:40px 0">No entries in ${monthLabel(state.month)}.</div>` : ''}
+      ${groups.map((g) => {
+        const spent = g.items.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+        return `<div class="day-head"><span>${friendlyDate(g.date)}</span><span>${spent ? '−' + money(spent) : ''}</span></div>
+          <div class="day">${g.items.map((t) => txRow(t, false)).join('')}</div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+// ---------------------------------------------------------------- Settings
+function settingsView() {
+  const s = settings();
+  const first = !s.url || !s.token;
+  return `<div class="stack">
+    <div class="between"><h1>${first ? 'Welcome 👋' : 'Settings'}</h1>${first ? '' : '<button class="link" data-act="tab" data-tab="home">Done</button>'}</div>
+    ${first ? `<div class="card"><h2>Connect your backend</h2>
+      <ol class="steps"><li>Set up the Google Apps Script backend (see the README).</li>
+      <li>Paste its <b>Web app URL</b> (ends in <code>/exec</code>).</li>
+      <li>Paste the <b>app password</b> that <code>setup()</code> printed.</li></ol></div>` : ''}
+    <div class="card">
+      <label class="field" for="s-url">Backend URL</label>
+      <input id="s-url" class="input" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(s.url)}" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <label class="field" for="s-token">App password</label>
+      <input id="s-token" class="input" placeholder="from setup()" value="${esc(s.token)}" autocapitalize="off" autocorrect="off" spellcheck="false">
+    </div>
+    <button class="btn" data-act="save-settings">${state.busy ? '<div class="spinner white"></div>' : 'Save & connect'}</button>
+    <div class="footer">Tip: in Safari, tap <b>Share → Add to Home Screen</b> to install this as an app.<br>Your data lives in your own Google Sheet.</div>
+  </div>`;
+}
+
+async function saveSettings() {
+  const url = $('#s-url').value.trim();
+  const token = $('#s-token').value.trim();
+  if (!/^https?:\/\//.test(url)) return toast('Paste the full Web app URL (starts with https://)', true);
+  if (!token) return toast('Paste your app password', true);
+  state.busy = true; render();
+  $('#s-url').value = url; $('#s-token').value = token;
+  try {
+    await api('ping', {}, { url, token });
+    store.set('settings', { url, token });
+    store.set('overview', null);
+    state.overview = null;
+    state.busy = false;
+    toast('Connected ✓');
+    go('home');
+  } catch (e) {
+    state.busy = false; render();
+    $('#s-url').value = url; $('#s-token').value = token;
+    toast(e.message, true);
+  }
+}
+
+// ---------------------------------------------------------------- events
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-act]');
+  if (!el || el.disabled) return;
+  const d = el.dataset;
+  switch (d.act) {
+    case 'tab': go(d.tab); break;
+    case 'new': openForm(null); break;
+    case 'edit': { const t = findTx(d.id); if (t) openForm(t); break; }
+    case 'cancel': state.form = null; go(state.returnTo); break;
+    case 'reload': state.homeError = null; render(); loadOverview(); break;
+    case 'send': sendSummary(); break;
+    case 'scan': $(d.src === 'camera' ? '#cameraInput' : '#photoInput').click(); break; // must run inside the tap
+    case 'type': {
+      const f = state.form;
+      f.type = d.type;
+      if (!categories()[f.type].includes(f.category)) f.category = categories()[f.type][0];
+      render();
+      break;
+    }
+    case 'cat': state.form.category = d.cat; render(); break;
+    case 'date': state.form.date = d.date; render(); break;
+    case 'save': saveForm(); break;
+    case 'delete': deleteEntry(); break;
+    case 'month': state.month = shiftMonth(state.month, Number(d.delta)); state.history = null; render(); loadHistory(); break;
+    case 'filter': state.filter = d.filter; render(); break;
+    case 'save-settings': saveSettings(); break;
+  }
+});
+
+document.addEventListener('input', (e) => {
+  const field = e.target.dataset?.field;
+  if (field && state.form) state.form[field] = e.target.value;
+});
+
+for (const id of ['#cameraInput', '#photoInput']) {
+  $(id).addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ''; // allow picking the same photo again
+    handlePhoto(file);
+  });
+}
+
+// Refresh numbers when the app comes back to the foreground.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    if (state.tab === 'home') loadOverview();
+    if (state.tab === 'history') loadHistory();
+  }
+});
+
+render();
+if (state.tab === 'home') loadOverview();
+</script>
+</body>
+</html>
